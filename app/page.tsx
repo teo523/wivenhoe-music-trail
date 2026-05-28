@@ -98,9 +98,10 @@ export default function Page() {
 
           {/* LOGO */}
           <img
-            src="/logo.png"
+            src={`${process.env.NODE_ENV === "production"
+              ? "/wivenhoe-music-trail"
+              : ""}/logo.png`}
             alt="Wivenhoe Music Trail"
-            className="w-10 h-10 object-contain rounded-md drop-shadow-md"
           />
 
           <div>
