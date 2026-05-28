@@ -3,7 +3,7 @@
 3:I[31713,["/wivenhoe-music-trail/_next/static/chunks/0dbhjjzl8qfwv.js","/wivenhoe-music-trail/_next/static/chunks/0wjfy~kriwebc.js"],"default"]
 6:I[97367,["/wivenhoe-music-trail/_next/static/chunks/0dbhjjzl8qfwv.js"],"OutletBoundary"]
 7:"$Sreact.suspense"
-0:{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/wivenhoe-music-trail/_next/static/chunks/0wjfy~kriwebc.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"rogPhou8mFEIlFlm926lG"}
+0:{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/wivenhoe-music-trail/_next/static/chunks/0wjfy~kriwebc.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"PJnEf1KSbtFD_1la3wk6h"}
 4:{}
 5:"$0:rsc:props:children:0:props:serverProvidedParams:params"
 8:null
