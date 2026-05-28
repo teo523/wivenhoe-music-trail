@@ -102,6 +102,7 @@ export default function Page() {
               ? "/wivenhoe-music-trail"
               : ""}/logo.png`}
             alt="Wivenhoe Music Trail"
+            className="h-10 w-auto object-contain"
           />
 
           <div>
