@@ -1,229 +1,616 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { venues, type EventItem } from "./data";
+
+const ROW_HEIGHT = 29;
+const EVENT_HEIGHT = 26;
+const TIME_HEADER_HEIGHT = 20;
+
+const TIME_SCALE = 2;
+const SIDEBAR_WIDTH = 150;
+
+const repoName = "wivenhoe-music-trail";
+const basePath =
+  process.env.NODE_ENV === "production" ? `/${repoName}` : "";
+
+function formatTime(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export default function Page() {
-  // ✅ Properly typed ref (fixes scrollTo + TS issues)
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const ROW_HEIGHT = 96;
-  const TIME_SCALE = 2;
+  const [now, setNow] = useState<Date | null>(null);
+  const [followNow, setFollowNow] = useState(false);
 
-  // freeze NOW for initial centering (prevents hydration + jitter)
-  const [initialNowMinutes] = useState<number>(() => {
-    const d = new Date();
-    return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-  });
+  const [selected, setSelected] = useState<
+    (EventItem & { venue: string }) | null
+  >(null);
 
-  const [now, setNow] = useState<Date>(() => new Date());
-  const [followNow, setFollowNow] = useState<boolean>(false);
+  // =========================================================
+  // CLOCK + INITIAL POSITION
+  // =========================================================
 
-  // live clock
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    const firstNow = new Date();
+
+    setNow(firstNow);
+
+    const initialMinutes =
+      firstNow.getHours() * 60 +
+      firstNow.getMinutes() +
+      firstNow.getSeconds() / 60;
+
+    const frame = requestAnimationFrame(() => {
+      const scroller = scrollRef.current;
+
+      if (!scroller) return;
+
+      scroller.scrollLeft = Math.max(
+        0,
+        initialMinutes * TIME_SCALE - scroller.clientWidth / 2
+      );
+    });
+
+    const interval = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
   }, []);
 
-  const nowMinutes =
-    now.getHours() * 60 +
-    now.getMinutes() +
-    now.getSeconds() / 60;
+  const nowMinutes = now
+    ? now.getHours() * 60 +
+      now.getMinutes() +
+      now.getSeconds() / 60
+    : 0;
 
-  const venues = useMemo(
-    () => [
-      {
-        name: "Old Grocery",
-        color: "bg-orange-500",
-        events: [
-          { title: "Morning Acoustic", start: 10 * 60, duration: 60 },
-          { title: "Jazz Trio", start: 14 * 60, duration: 90 },
-          { title: "Late Jam", start: 20 * 60, duration: 120 },
-        ],
-      },
-      {
-        name: "Rose & Crown",
-        color: "bg-pink-500",
-        events: [{ title: "Indie Set", start: 17 * 60, duration: 120 }],
-      },
-      {
-        name: "St Mary's Hall",
-        color: "bg-blue-500",
-        events: [
-          { title: "Choir", start: 12 * 60, duration: 60 },
-          { title: "Folk Duo", start: 21 * 60, duration: 90 },
-        ],
-      },
-      {
-        name: "Black Buoy",
-        color: "bg-green-500",
-        events: [{ title: "Poetry Jam", start: 15 * 60, duration: 90 }],
-      },
-      {
-        name: "Quayside Stage",
-        color: "bg-purple-500",
-        events: [{ title: "DJ Set", start: 22 * 60, duration: 150 }],
-      },
-    ],
-    []
-  );
+  // =========================================================
+  // FOLLOW NOW
+  // =========================================================
 
-  // follow NOW mode (smooth auto scroll)
   useEffect(() => {
-    if (!followNow || !scrollRef.current) return;
+    if (!followNow || !now || !scrollRef.current) return;
 
-    scrollRef.current.scrollTo({
-      left: nowMinutes * TIME_SCALE,
+    const scroller = scrollRef.current;
+
+    scroller.scrollTo({
+      left: Math.max(
+        0,
+        nowMinutes * TIME_SCALE - scroller.clientWidth / 2
+      ),
       behavior: "smooth",
     });
-  }, [nowMinutes, followNow]);
-
-  // center on NOW when page loads (SAFE VERSION)
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({
-        left: initialNowMinutes * TIME_SCALE - window.innerWidth / 2,
-        top: 0,
-        behavior: "auto",
-      });
-    });
-  }, [initialNowMinutes]);
+  }, [followNow, nowMinutes, now]);
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 text-white flex flex-col">
+    <div className="h-screen w-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
 
-      {/* ================= HEADER ================= */}
-      <div className="p-3 border-b border-zinc-800 flex justify-between items-center">
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
-        <div className="flex items-center gap-3">
+      <header className="shrink-0 px-2.5 py-1.5 border-b border-zinc-800 flex items-center justify-between gap-2 bg-zinc-950">
 
-          {/* LOGO */}
+        <div className="flex items-center gap-2 min-w-0">
+
+          {/* GOOSE LOGO */}
           <img
-            src={`${process.env.NODE_ENV === "production"
-              ? "/wivenhoe-music-trail"
-              : ""}/logo.png`}
-            alt="Wivenhoe Music Trail"
-            className="h-10 w-auto object-contain"
+            src={`${basePath}/logo.png`}
+            alt="Wivenhoe Music Trail goose logo"
+            className="h-12 w-12 rounded-full object-cover shrink-0 border border-white/10"
           />
 
-          <div>
-            <h1 className="font-bold">Wivenhoe Music Trail</h1>
-            <p className="text-xs text-zinc-400">
-              Live festival timeline dashboard
+          <div className="min-w-0">
+
+            <div className="flex items-center gap-2">
+
+              <h1 className="font-bold text-sm sm:text-base leading-tight truncate">
+                Wivenhoe Music Trail
+              </h1>
+
+              {/* LIVE DOT */}
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+
+            </div>
+
+            <p className="text-[10px] sm:text-xs text-zinc-400 truncate">
+              Tap any event for details
             </p>
+
           </div>
         </div>
 
+        {/* FOLLOW NOW */}
+
         <button
-          onClick={() => setFollowNow(v => !v)}
-          className={`text-xs px-3 py-1 rounded ${
-            followNow ? "bg-red-500" : "bg-zinc-800"
+          onClick={() => setFollowNow((value) => !value)}
+          className={`shrink-0 text-[10px] sm:text-xs px-2.5 py-1.5 rounded-lg transition ${
+            followNow
+              ? "bg-red-500"
+              : "bg-zinc-800 hover:bg-zinc-700"
           }`}
         >
           {followNow ? "Following NOW" : "Free Scroll"}
         </button>
-      </div>
 
-      {/* ================= BODY ================= */}
-      <div ref={scrollRef} className="flex-1 overflow-auto">
+      </header>
 
-        <div className="flex min-w-[2000px]">
+      {/* =====================================================
+          TIMELINE SCROLLER
+      ====================================================== */}
 
-          {/* LEFT PANEL */}
-          <div className="sticky left-0 z-50 bg-zinc-900 border-r border-zinc-800 w-48">
-            {venues.map((v) => (
+      <main
+        ref={scrollRef}
+        className="timeline-scroll flex-1 overflow-auto"
+        style={{
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+
+        <div
+          className="flex"
+          style={{
+            width: SIDEBAR_WIDTH + 24 * 60 * TIME_SCALE,
+            minHeight:
+              TIME_HEADER_HEIGHT +
+              venues.length * ROW_HEIGHT,
+          }}
+        >
+
+          {/* =================================================
+              LEFT SIDEBAR
+          ================================================== */}
+
+          <aside
+            className="sticky left-0 z-40 shrink-0 bg-zinc-900 border-r border-zinc-800 shadow-xl"
+            style={{
+              width: SIDEBAR_WIDTH,
+            }}
+          >
+
+            {/* EMPTY CORNER ABOVE VENUES */}
+
+            <div
+              className="border-b border-zinc-700 bg-zinc-950"
+              style={{
+                height: TIME_HEADER_HEIGHT,
+              }}
+            >
+              <div className="h-full flex items-center px-2 text-[9px] uppercase tracking-wider text-zinc-500">
+                Venues
+              </div>
+            </div>
+
+            {/* VENUES */}
+
+            {venues.map((venue) => (
               <div
-                key={v.name}
-                className="flex items-center px-3 border-b border-zinc-800"
-                style={{ height: ROW_HEIGHT }}
+                key={venue.name}
+                className="flex items-center px-2 border-b border-zinc-800"
+                style={{
+                  height: ROW_HEIGHT,
+                }}
               >
-                <div>
-                  <div className="text-sm font-bold">{v.name}</div>
-                  <div className={`h-1.5 mt-1 rounded ${v.color}`} />
+                <div className="w-full min-w-0">
+
+                  <div className="text-[11px] sm:text-xxs leading-tight truncate">
+                    {venue.name}
+                  </div>
+
+                  <div
+                    className={`h-1 mt-1 rounded-full ${venue.color}`}
+                  />
+
                 </div>
               </div>
             ))}
-          </div>
 
-          {/* TIMELINE */}
-          <div className="relative flex-1">
+          </aside>
+
+          {/* =================================================
+              TIMELINE
+          ================================================== */}
+
+          <section
+            className="relative shrink-0"
+            style={{
+              width: 24 * 60 * TIME_SCALE,
+              height:
+                TIME_HEADER_HEIGHT +
+                venues.length * ROW_HEIGHT,
+            }}
+          >
+
+            {/* =================================================
+                TIME RULER
+            ================================================== */}
+
             <div
-              className="relative"
+              className="absolute top-0 left-0 right-0 bg-zinc-950 border-b border-zinc-700 z-20"
               style={{
-                width: 24 * 60 * TIME_SCALE,
-                height: venues.length * ROW_HEIGHT,
+                height: TIME_HEADER_HEIGHT,
               }}
             >
 
-              {/* NOW LINE */}
-              <div
-                className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-50"
-                style={{ left: nowMinutes * TIME_SCALE }}
-              >
-                <div className="absolute top-2 -translate-x-1/2 bg-red-500 text-xs px-2 py-1 rounded">
-                  NOW
-                </div>
-              </div>
-
-              {/* GRID */}
-              {Array.from({ length: 24 }).map((_, i) => (
+              {Array.from({ length: 24 }).map((_, hour) => (
                 <div
-                  key={i}
-                  className="absolute top-0 bottom-0 border-l border-zinc-800 text-xs text-zinc-600"
-                  style={{ left: i * 60 * TIME_SCALE }}
+                  key={`time-${hour}`}
+                  className="absolute top-0 bottom-0 border-l border-zinc-700"
+                  style={{
+                    left: hour * 60 * TIME_SCALE,
+                  }}
                 >
-                  <span className="absolute top-2 left-1">
-                    {String(i).padStart(2, "0")}:00
+
+                  <span className="absolute top-1 left-1 text-[9px] text-zinc-400 whitespace-nowrap">
+                    {String(hour).padStart(2, "0")}:00
                   </span>
+
                 </div>
               ))}
 
-              {/* EVENTS */}
-              {venues.map((venue, rowIndex) => {
-                const top = rowIndex * ROW_HEIGHT;
-
-                return (
-                  <div
-                    key={venue.name}
-                    className="absolute left-0 right-0"
-                    style={{ top, height: ROW_HEIGHT }}
-                  >
-                    {venue.events.map((event, i) => {
-                      const left = event.start * TIME_SCALE;
-                      const width = event.duration * TIME_SCALE;
-
-                      const isLive =
-                        nowMinutes >= event.start &&
-                        nowMinutes <= event.start + event.duration;
-
-                      return (
-                        <div
-                          key={i}
-                          className={`absolute top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs ${
-                            venue.color
-                          } ${
-                            isLive
-                              ? "opacity-100 scale-110 shadow-lg"
-                              : "opacity-60"
-                          }`}
-                          style={{ left, width }}
-                        >
-                          {event.title}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* ================= FOOTER ================= */}
-      <div className="p-2 text-xs border-t border-zinc-800 flex justify-between text-zinc-400">
-        <span>{now.toLocaleTimeString()}</span>
-        <span>{followNow ? "Auto-follow ON" : "Manual control"}</span>
+            {/* =================================================
+                VERTICAL HOUR GRID
+            ================================================== */}
+
+            {Array.from({ length: 24 }).map((_, hour) => (
+              <div
+                key={`grid-${hour}`}
+                className="absolute bottom-0 border-l border-zinc-800/80 pointer-events-none"
+                style={{
+                  top: TIME_HEADER_HEIGHT,
+                  left: hour * 60 * TIME_SCALE,
+                }}
+              />
+            ))}
+
+            {/* =================================================
+                VENUE ROWS + EVENTS
+            ================================================== */}
+
+            {venues.map((venue, rowIndex) => (
+
+              <div
+                key={venue.name}
+                className="absolute left-0 right-0 border-b border-zinc-800/80"
+                style={{
+                  top:
+                    TIME_HEADER_HEIGHT +
+                    rowIndex * ROW_HEIGHT,
+                  height: ROW_HEIGHT,
+                }}
+              >
+
+                {venue.events.map((event) => {
+
+                  const isLive =
+                    !!now &&
+                    nowMinutes >= event.start &&
+                    nowMinutes <=
+                      event.start + event.duration;
+
+                  return (
+
+                    <button
+                      key={event.slug}
+                      type="button"
+                      aria-label={`More information about ${event.title}`}
+                      onClick={() =>
+                        setSelected({
+                          ...event,
+                          venue: venue.name,
+                        })
+                      }
+                      className={`
+                        group
+                        absolute
+                        top-1/2
+                        -translate-y-1/2
+                        rounded-lg
+                        px-2
+                        text-left
+                        border
+                        border-white/10
+                        shadow-md
+                        transition-all
+                        cursor-pointer
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-white/70
+                        hover:brightness-110
+                        ${venue.color}
+                        ${
+                          isLive
+                            ? "opacity-100 ring-2 ring-white/20 shadow-lg"
+                            : "opacity-60 hover:opacity-95"
+                        }
+                      `}
+                      style={{
+                        left:
+                          event.start *
+                          TIME_SCALE,
+
+                        width: Math.max(
+                          event.duration *
+                            TIME_SCALE,
+                          78
+                        ),
+
+                        height: EVENT_HEIGHT,
+                      }}
+                    >
+
+                      <div className="h-full flex items-center justify-between gap-1.5">
+
+                        {/* EVENT TITLE */}
+
+                        <div className="min-w-0 flex-1">
+
+                          <div
+                            className="
+                              font-semibold
+                              text-[10px]
+                              sm:text-[11px]
+                              leading-[1.15]
+                              line-clamp-2
+                              whitespace-normal
+                            "
+                          >
+                            {event.title}
+                          </div>
+
+                        </div>
+
+                        {/* INFO CUE */}
+
+                        <span
+                          aria-hidden="true"
+                          className="
+                            shrink-0
+                            flex
+                            items-center
+                            justify-center
+                            h-4
+                            w-4
+                            rounded-full
+                            bg-black/25
+                            border
+                            border-white/25
+                            text-[9px]
+                            font-bold
+                            leading-none
+                            transition-transform
+                            group-hover:scale-110
+                          "
+                        >
+                          i
+                        </span>
+
+                      </div>
+
+                    </button>
+
+                  );
+
+                })}
+
+              </div>
+
+            ))}
+
+            {/* =================================================
+                NOW LINE
+            ================================================== */}
+
+            {now && (
+
+              <div
+                className="absolute bottom-0 w-[2px] bg-red-500 z-30 pointer-events-none"
+                style={{
+                  top: 0,
+                  left: nowMinutes * TIME_SCALE,
+                }}
+              >
+
+                {/* NOW LABEL IN TIME RULER */}
+
+                <div className="absolute top-[2px] -translate-x-1/2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-lg">
+                  NOW
+                </div>
+
+              </div>
+
+            )}
+
+          </section>
+
+        </div>
+
+      </main>
+
+      {/* =====================================================
+          FOOTER
+      ====================================================== */}
+
+      <footer className="shrink-0 px-3 py-1.5 text-[10px] border-t border-zinc-800 flex justify-between text-zinc-400 bg-zinc-950">
+
+        <span>
+          {now
+            ? now.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "--:--"}
+        </span>
+
+        <span>
+          {followNow
+            ? "Auto-follow ON"
+            : "Swipe / scroll · tap events"}
+        </span>
+
+      </footer>
+
+      {/* =====================================================
+          EVENT DETAILS
+      ====================================================== */}
+
+      {selected && (
+  <div
+    className="
+      fixed inset-0 z-[100]
+      bg-black/60 backdrop-blur-sm
+      flex items-end sm:items-center justify-center
+      p-0 sm:p-4
+    "
+    onClick={() => setSelected(null)}
+  >
+    <div
+      className="
+        w-full sm:max-w-md
+        max-h-[88vh]
+        bg-zinc-900
+        border border-zinc-700
+        rounded-t-2xl sm:rounded-2xl
+        overflow-y-auto
+        shadow-2xl
+      "
+      onClick={(event) => event.stopPropagation()}
+    >
+      {/* SMALLER IMAGE */}
+
+      <img
+        src={`${basePath}${selected.image}`}
+        alt={selected.artist}
+        className="
+          w-full
+          h-28 sm:h-36
+          object-cover
+          bg-zinc-800
+        "
+      />
+
+      {/* CONTENT */}
+
+      <div className="p-4">
+
+        {/* VENUE */}
+
+        <div className="text-[10px] uppercase tracking-wider text-zinc-400">
+          {selected.venue}
+        </div>
+
+        {/* TITLE */}
+
+        <h2 className="text-lg sm:text-xl font-bold mt-0.5 leading-tight">
+          {selected.title}
+        </h2>
+
+        {/* ARTIST */}
+
+        <div className="text-sm text-zinc-300 mt-0.5">
+          {selected.artist}
+        </div>
+
+        {/* TIME */}
+
+        <div className="text-xs text-zinc-400 mt-1">
+          {formatTime(selected.start)}
+          {" – "}
+          {formatTime(selected.start + selected.duration)}
+        </div>
+
+        {/* LOCATION */}
+
+        <div className="mt-3">
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-0.5">
+            Location
+          </div>
+
+          <a
+            href={selected.mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="
+              flex
+              items-start
+              gap-1.5
+              text-xs
+              text-zinc-200
+              hover:text-white
+              transition
+            "
+          >
+            <span aria-hidden="true">
+              📍
+            </span>
+
+            <span className="underline underline-offset-2 decoration-zinc-600">
+              {selected.address}
+            </span>
+          </a>
+        </div>
+
+        {/* DESCRIPTION */}
+
+        <p className="mt-3 text-xs sm:text-sm leading-5 text-zinc-300">
+          {selected.shortDescription}
+        </p>
+
+        {/* BUTTONS */}
+
+        <div className="mt-4 flex gap-2">
+
+          <a
+            href={`${basePath}/events/${selected.slug}/`}
+            className="
+              flex-1
+              text-center
+              bg-white
+              text-zinc-950
+              font-semibold
+              text-sm
+              rounded-lg
+              px-3
+              py-2
+            "
+          >
+            More info
+          </a>
+
+          <button
+            onClick={() => setSelected(null)}
+            className="
+              px-3
+              py-2
+              rounded-lg
+              bg-zinc-800
+              hover:bg-zinc-700
+              text-sm
+            "
+          >
+            Close
+          </button>
+
+        </div>
+
       </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
